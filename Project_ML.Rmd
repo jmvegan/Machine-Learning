@@ -1,0 +1,66 @@
+# Weight Lifting Training Exercises Dataset
+# Executive Summary
+We have a data set based on the exercise performed by 6 young health male participants (20-28 years old), with little weight lifting experience.Everyone perfomed 10 repetitions of the Unilateral Dumbbell Biceps Curl in five different fashions: exactly according to the specification (Class A), throwing the elbows to the front (Class B), lifting the dumbbell only halfway (Class C), lowering the dumbbell only halfway (Class D) and throwing the hips to the front (Class E).
+I've chosen RandomForest method with parallel processing because the large running time of the training set.Read more in http://groupware.les.inf.puc-rio.br/har#ixzz3BJDO0kCC
+#Libraries and data set load
+```{r}
+library(ggplot2)
+library(caret)
+library(cluster)
+library(survival)
+library(randomForest)
+library(Hmisc)
+library(foreach)
+library(iterators)
+library(parallel)
+library(doParallel)
+install.packages('e1071', dependencies=TRUE)
+```
+#Data set load
+```{r}
+test <-read.csv("pml-testing.csv")
+train <- read.csv("pml-training.csv")
+```
+# Explore, cleaning and select data
+Analyzing the data set briefly using head(), tail(), I've realized that many columns has NA, so I decide to select the main acceleration columns which names include "accel_"
+```{r}
+dim(train); dim(test)
+set.seed(123)
+train <- train[,union(grep("^accel_", colnames(train)),grep("classe",colnames(train)) )] 
+test <- test[,union(grep("^accel_", colnames(test)),grep("classe",colnames(test)) )] 
+names(train)
+```
+#Split the training data set 70%-30%
+I've splitted the training set into training 70%  and test 30%
+```{r}
+splitted <- createDataPartition(y = train$classe, p = 0.7, list = FALSE)
+s_training <- train[splitted, ]
+s_test <-  train[-splitted, ]
+```
+#Convert column types
+I convert the column classe as a factor and the other columns as a numeric
+```{r}
+s_training$classe <-as.factor(s_training$classe)
+s_training[, 1:6] <- sapply(s_training[, 1:6], as.numeric)
+s_test$classe <-as.factor(s_test$classe)
+s_test[, 1:6] <- sapply(s_test[, 1:6], as.numeric)
+```
+#Model definition
+I build a model using random forest and parallel processing to speed it up
+```{r}
+registerDoParallel()
+randomForest1 <- foreach(ntree=rep(150, 6), .combine=randomForest::combine, .packages='randomForest') %dopar% {randomForest(x=sample1[,1:12], y=sample1$classe, ntree=ntree)}
+```
+#Prediction and Errors
+I create a ConfusionMatrix using predict() but before I have to istall packages('e1071')
+```{r}
+prediction1 <- predict(randomForest1,s_test)
+confusionMatrix(prediction1,s_test$classe)
+```
+# Answers
+To predict the answera I use predict() 
+```{r}
+predict(randomForest1, test)
+```
+#Conclusion
+I achieve an accuracy of 93,9% so theorically almost all of the answers should be correct.I found an error in answer 3. In order to solve it I must include more features.
